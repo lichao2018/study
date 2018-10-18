@@ -1,0 +1,20 @@
+一个looper对应多个handler，那消息在哪个handler中处理
+答：handler对应message，message中带有handler属性，叫target，分发消息时，message.target.dispatchMessage(message)
+
+boolean postDelayed(Runnable r,long delayMillis)
+
+looper怎么阻塞的
+
+于Message对象，一般并不推荐直接使用它的构造方法得到，而是建议通过使用Message.obtain()这个静态的方法或者Handler.obtainMessage()获取。Message.obtain()会从消息池中获取一个Message对象，如果消息池中是空的，才会使用构造方法实例化一个新Message，这样有利于消息资源的利用。并不需要担心消息池中的消息过多，它是有上限的，上限为10个。
+
+其实产生内存泄漏的还有好几种情况，比如多线程造成的内存泄漏，静态变量造成的内存泄漏，单例模式造成的内存泄漏等等
+
+loop 方法会调用 MessageQueue 的 next 方法来获取新消息，而next是一个阻塞操作，当没有消息时，next 方法会一直阻塞在那里，这也导致 loop 方法一直阻塞在那里。
+
+主线程消息循环开始以后，ActivityThread还需要一个 Handler 来和消息队列进行交互，这个Handler就是ActivitThread.H，它内部定义了一组消息类型，主要包含了四大组件的启动和停止过程：
+
+1.当一个Android应用启动的时候，会自动创建一个供应用主线程使用的Looper实例。Looper的主要工作就是一个一个处理消息队列中的消息对象。在Android中，所有Android框架的事件（比如Activity的生命周期方法调用和按钮点击等）都是放入到消息中，然后加入到Looper要处理的消息队列中，由Looper负责一条一条地进行处理。主线程中的Looper生命周期和当前应用一样长。
+2.当一个Handler在主线程进行了初始化之后，我们发送一个target为这个Handler的消息到Looper处理的消息队列时，实际上已经发送的消息已经包含了一个Handler实例的引用，只有这样Looper在处理到这条消息时才可以调用Handler#handleMessage(Message)完成消息的正确处理。
+3.在Java中，非静态的内部类和匿名内部类都会隐式地持有其外部类的引用。静态的内部类不会持有外部类的引用。
+解决方式
+要解决这种问题，思路就是不适用非静态内部类，继承Handler时，要么是放在单独的类文件中，要么就是使用静态内部类。因为静态的内部类不会持有外部类的引用，所以不会导致外部类实例的内存泄露。当你需要在静态内部类中调用外部的Activity时，我们可以使用弱引用来处理。另外关于同样也需要将Runnable设置为静态的成员属性。注意：一个静态的匿名内部类实例不会持有外部类的引用。
