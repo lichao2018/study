@@ -5,6 +5,8 @@ boolean postDelayed(Runnable r,long delayMillis)
 
 looper怎么阻塞的
 
+https://blog.csdn.net/qingtiantianqing/article/details/72783952
+
 于Message对象，一般并不推荐直接使用它的构造方法得到，而是建议通过使用Message.obtain()这个静态的方法或者Handler.obtainMessage()获取。Message.obtain()会从消息池中获取一个Message对象，如果消息池中是空的，才会使用构造方法实例化一个新Message，这样有利于消息资源的利用。并不需要担心消息池中的消息过多，它是有上限的，上限为10个。
 
 其实产生内存泄漏的还有好几种情况，比如多线程造成的内存泄漏，静态变量造成的内存泄漏，单例模式造成的内存泄漏等等
