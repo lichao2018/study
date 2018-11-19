@@ -1,0 +1,275 @@
+# 进程间通信机制
+
+Binder是进程间通信的媒介，进程间通信通过Binder绑定对象信息来传递数据。对象要序列化之后才能传递。
+
+## 序列化
+
+### 1.Serializable
+
+Java提供的序列化接口。只要类继承Serializable，并指定一个标识即可：
+```
+private static final long serializableVersionUID = 8711368828010083044L;
+```
+序列化和反序列化的过程:
+```
+//序列化
+User user = new User(0, "tom");
+ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream("cache.txt"));
+out.writeObject(user);
+out.close();
+
+//反序列化
+ObjectInputStream in = new ObjectInputStream(new FileInputStream("cache.txt"));
+User newUser = (User)in.readObject();
+in.close();
+```
+
+### 2.Parcelable
+
+Andorid提供的序列化接口。类实现Parcelable接口后变成一个可序列化的类。
+```
+public class Book implements Parcelable{
+    public int bookId;
+    public String bookName;
+
+    public Book(int bookId, String bookName){
+        this.bookId = bookId;
+        this.bookName = bookName;
+    }
+
+    protected Book(Parcel in) {
+    }
+
+    public static final Creator<Book> CREATOR = new Creator<Book>() {
+        @Override
+        public Book createFromParcel(Parcel in) {
+            return new Book(in);
+        }
+
+        @Override
+        public Book[] newArray(int size) {
+            return new Book[size];
+        }
+    };
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeInt(bookId);
+        dest.writeString(bookName);
+    }
+}
+```
+Serializable开销大，序列化和反序列化过程需要大量I/O操作。Parcelable使用麻烦，但是效率高。
+
+## Binder上层实现
+
+所有在Binder中传输的接口都要实现IInterface。
+asInterface方法，用于将服务端的Binder对象转换成客户端所需的AIDL接口类型的对象，如果客户端和服务端位于同一进程，那么返回的就是服务端的Stub对象，否则返回的是Stub.proxy对象。
+asBinder用于返回当前Binder对象。
+onTransact方法，当客户端发起跨进程请求时，远程请求通过系统底层封装后交由此方法处理。
+```
+public interface IBookManager extends android.os.IInterface {
+    /**
+     * Local-side IPC implementation stub class.
+     */
+    public static abstract class Stub extends android.os.Binder implements IBookManager {
+        private static final String DESCRIPTOR = "com.lc.study.IBookManager";
+
+        /**
+         * Construct the stub at attach it to the interface.
+         */
+        public Stub() {
+            this.attachInterface(this, DESCRIPTOR);
+        }
+
+        /**
+         * Cast an IBinder object into an com.lc.study.IBookManager interface,
+         * generating a proxy if needed.
+         */
+        public static IBookManager asInterface(android.os.IBinder obj) {
+            if ((obj == null)) {
+                return null;
+            }
+            android.os.IInterface iin = obj.queryLocalInterface(DESCRIPTOR);
+            if (((iin != null) && (iin instanceof IBookManager))) {
+                return ((IBookManager) iin);
+            }
+            return new Proxy(obj);
+        }
+
+        @Override
+        public android.os.IBinder asBinder() {
+            return this;
+        }
+
+        @Override
+        public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException {
+            switch (code) {
+                case INTERFACE_TRANSACTION: {
+                    reply.writeString(DESCRIPTOR);
+                    return true;
+                }
+                case TRANSACTION_getBookList: {
+                    data.enforceInterface(DESCRIPTOR);
+                    java.util.List<Book> _result = this.getBookList();
+                    reply.writeNoException();
+                    reply.writeTypedList(_result);
+                    return true;
+                }
+                case TRANSACTION_addBook: {
+                    data.enforceInterface(DESCRIPTOR);
+                    Book _arg0;
+                    if ((0 != data.readInt())) {
+                        _arg0 = Book.CREATOR.createFromParcel(data);
+                    } else {
+                        _arg0 = null;
+                    }
+                    this.addBook(_arg0);
+                    reply.writeNoException();
+                    return true;
+                }
+                default:
+                    break;
+            }
+            return super.onTransact(code, data, reply, flags);
+        }
+
+        private static class Proxy implements IBookManager {
+            private android.os.IBinder mRemote;
+
+            Proxy(android.os.IBinder remote) {
+                mRemote = remote;
+            }
+
+            @Override
+            public android.os.IBinder asBinder() {
+                return mRemote;
+            }
+
+            public String getInterfaceDescriptor() {
+                return DESCRIPTOR;
+            }
+
+            @Override
+            public java.util.List<Book> getBookList() throws android.os.RemoteException {
+                android.os.Parcel _data = android.os.Parcel.obtain();
+                android.os.Parcel _reply = android.os.Parcel.obtain();
+                java.util.List<Book> _result;
+                try {
+                    _data.writeInterfaceToken(DESCRIPTOR);
+                    mRemote.transact(Stub.TRANSACTION_getBookList, _data, _reply, 0);
+                    _reply.readException();
+                    _result = _reply.createTypedArrayList(Book.CREATOR);
+                } finally {
+                    _reply.recycle();
+                    _data.recycle();
+                }
+                return _result;
+            }
+
+            @Override
+            public void addBook(Book book) throws android.os.RemoteException {
+                android.os.Parcel _data = android.os.Parcel.obtain();
+                android.os.Parcel _reply = android.os.Parcel.obtain();
+                try {
+                    _data.writeInterfaceToken(DESCRIPTOR);
+                    if ((book != null)) {
+                        _data.writeInt(1);
+                        book.writeToParcel(_data, 0);
+                    } else {
+                        _data.writeInt(0);
+                    }
+                    mRemote.transact(Stub.TRANSACTION_addBook, _data, _reply, 0);
+                    _reply.readException();
+                } finally {
+                    _reply.recycle();
+                    _data.recycle();
+                }
+            }
+        }
+
+        static final int TRANSACTION_getBookList = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+        static final int TRANSACTION_addBook = (android.os.IBinder.FIRST_CALL_TRANSACTION + 1);
+    }
+
+    public java.util.List<Book> getBookList() throws android.os.RemoteException;
+
+    public void addBook(Book book) throws android.os.RemoteException;
+}
+```
+
+## Binder的使用
+
+服务端Service，binder实现Stub的方法，并在onBind中返回。
+```
+public class BookManagerService extends Service{
+    private String TAG = "BookManagerService";
+    private List<Book> mBookList = new ArrayList<>();
+    private Binder mBinder = new IBookManager.Stub() {
+        @Override
+        public List<Book> getBookList() throws RemoteException {
+            return mBookList;
+        }
+
+        @Override
+        public void addBook(Book book) throws RemoteException {
+            mBookList.add(book);
+        }
+    };
+
+    public BookManagerService(){
+
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return mBinder;
+    }
+
+    @Override
+    public void onCreate() {
+        super.onCreate();
+        Log.e(TAG, "remote service start");
+        mBookList.add(new Book(1, "book1"));
+        mBookList.add(new Book(2, "book2"));
+    }
+}
+```
+
+客户端绑定服务时，onServiceConnected回调中的service就是服务端的mBinder，可通过IBookManager.Stub.asInterface(service)得到IBookManager对象，拿到里面的数据。
+```
+if(mConnection == null){
+    mConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            IBookManager bookManager = IBookManager.Stub.asInterface(service);
+            try{
+                bookManager.addBook(new Book(3, "book3"));
+            }catch (RemoteException e){
+                e.printStackTrace();
+            }
+
+            try {
+                List<Book> bookList = bookManager.getBookList();
+                for(Book book : bookList){
+                    Log.e(TAG, book.toString());
+                }
+            } catch (RemoteException e) {
+                e.printStackTrace();
+            }
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+
+        }
+    };
+}
+bindService(intent, mConnection, BIND_AUTO_CREATE);
+```
