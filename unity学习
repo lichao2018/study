@@ -1,0 +1,94 @@
+添加触发器
+this.PlayBtnObj.GetComponent<EventTrigger>().triggers.RemoveAt(0);
+EventTrigger.Entry entry = new EventTrigger.Entry();
+entry.eventID = EventTriggerType.PointerClick;
+entry.callback.AddListener(delegate(BaseEventData eventData)
+{
+	Menu.instance.PlayBtn();
+});
+this.PlayBtnObj.GetComponent<EventTrigger>().triggers.Add(entry);
+
+
+
+//设置gameObject是否activite
+base.gameObject.SetActive(isEnable);
+//是否activite
+gameObject.activeSelf
+
+
+
+//遍历gameObject的transform的子transform，设置缩放大小
+for (int i = 0; i < this.SettingsPanel.transform.childCount; i++)
+{
+	this.SettingsPanel.transform.GetChild(i).DOScale(Vector3.one, 0.15f).SetDelay((float)i * 0.08f).SetEase(Ease.Linear);
+}
+//遍历gameObject的transform的子transform，设置大小为0
+for (int i = 0; i < this.SettingsPanel.transform.childCount; i++)
+{
+	this.SettingsPanel.transform.GetChild(i).transform.localScale = Vector3.zero;
+}
+
+
+
+//声明委托
+public delegate int MyDelegate (string s);
+//定义委托，这么写thisUpdate就是GetInput，不过为什么不直接用GetInput，委托的作用在哪？
+莫非是不用回调时，可以将thisUpdate置空？还有可以作为参数传递？用来控制是否调用方法，直接update的话，可能一直监听输入，浪费资源
+this.thisUpdate = new BallsManager.ThisUpdate(this.GetInput);
+
+
+
+//判断是否有点击，并且点击在了GUI(菜单按钮等)上
+Input.touchCount > 0 && EventSystem.current.IsPointerOverGameObject(Input.touches[0].fingerId)
+
+
+//获取gameObject的组件
+GetComponent<BallElement>();                                   //自定义的脚本
+this.circleCol = base.GetComponent<SphereCollider>();          //碰撞器
+this.trailRenderer = base.GetComponent<TrailRenderer>();       //
+this.rigidBody2D = base.GetComponent<Rigidbody>();             //刚体
+
+//销毁gameobject
+UnityEngine.Object.Destroy(base.transform.gameObject);
+
+
+//延时调用方法，表示0.1s后调用InitiateGame方法
+base.Invoke("InitiateGame", 0.1f);
+
+
+
+//实例化一个prefab，设置父位置，自己的位置
+GameObject gameObject = UnityEngine.Object.Instantiate<GameObject>(this.dotPrefab);
+gameObject.transform.parent = base.transform;
+gameObject.transform.localPosition = new Vector3(0f, -50f, -10f);
+
+
+//设置移动的动画
+base.transform.DOLocalMove(new Vector3(0f, 0f, 11f), 30f, false).SetSpeedBased(true).SetEase(Ease.Linear);
+//停止当前变化
+base.transform.DOKill(false);
+
+
+//检测碰撞，触发
+OnCollisionEnter
+OnCollisionExit
+OnCollisionStay
+OnTriggerEnter
+OnTriggerExit
+OnTriggerStay
+
+
+//限制大小，如果输入大于最大数则返回最大数，小于最小数则返回最小数，否则返回自身
+Mathf.Clamp()
+
+
+
+
+//自定义mesh
+this.meshFilter = base.GetComponent<MeshFilter>();
+Mesh mesh = this.meshFilter.sharedMesh;
+mesh.vertices = array;//顶点位置
+mesh.normals = array2;//法向量，决定了每个顶点在光照下所呈现出的颜色
+mesh.uv = array3;
+mesh.triangles = array4;
+mesh.RecalculateBounds();
