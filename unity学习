@@ -81,3 +81,12 @@ Awake用于在游戏开始之前初始化变量或游戏状态。在脚本整个
 Start()
 Start仅在Update函数第一次被调用前调用。Start在behaviour的生命周期中只被调用一次。它和Awake的不同是Start只在脚本实例被启用时调用。
 你可以按需调整延迟初始化代码。Awake总是在Start之前执行。这允许你协调初始化顺序。
+
+通过键盘输入控制物体移动旋转
+m_MovementInputValue = Input.GetAxis(m_MovementAxisName);
+m_TurnInputValue = Input.GetAxis (m_TurnAxisName);
+Vector3 movement = transform.forward * m_MovementInputValue * m_Speed * Time.deltaTime;
+m_Rigidbody.MovePosition (m_Rigidbody.position + movement);
+float turn = m_TurnInputValue * m_TurnSpeed * Time.deltaTime;
+Quaternion turnRotation = Quaternion.Euler (0f,turn,0f);
+m_Rigidbody.MoveRotation (m_Rigidbody.rotation * turnRotation);
