@@ -1,0 +1,18 @@
+线程状态
+NEW
+RUNNABLE        处于可运行状态的线程正在Java虚拟机中执行，但它可能正在等待来自操作系统的其他资源，例如处理器。
+BLOCKED         正在等待进入同步锁，或者在调用了object.wait方法并被唤醒后等待重新进入同步锁
+WAITING         调用了无参的object.wait方法，或调用了无参的thread.join方法
+TIMED_WAITING   调用了Thread.sleep方法，或者调用了有参的object.wait或者有参的thread.join
+TERMINATED
+
+join()方法是指等待调用join()方法的线程执行结束，程序才会继续执行下去
+yield()方法是这样描述的：暂停当前正在执行的线程对象，并执行其他线程。在多线程的情况下，由CPU决定执行哪一个线程，而yield()方法就是暂停当前的线程，让给其他线程（包括它自己）执行，具体由谁执行由CPU决定。
+sleep不让出cpu时间片，wait会让出cpu时间片
+
+
+加锁方式
+synchronized对一个对象或者一个类，或者一个方法，一个代码块加锁
+ReentrantLock进行显示加锁，创建RL对象，调用lock，unlock方法
+
+死锁
