@@ -1,0 +1,113 @@
+链接：
+https://www.race604.com/android-ble-tips/
+
+https://my.oschina.net/dingjikerbo/blog/740032
+
+链接中的内容：
+
+这段时间在做低功耗蓝牙（BLE）应用的开发（并不涉及蓝牙协议栈）。总体感觉 Android BLE 还是不太稳定，开发起来也是各种痛苦。这里记录一些杂项和开发中遇到的问题及其解决方法，避免大家踩坑。本文说的问题有些没有得到官方文档的验证，不过也有一些论坛帖子的支持，也可以算是有一定根据。
+
+Android 从 4.3(API Level 18) 开始支持低功耗蓝牙，但是只支持作为中心设备（Central）模式，这就意味着 Android 设备只能主动扫描和链接其他外围设备（Peripheral）。从 Android 5.0(API Level 21) 开始两种模式都支持。BLE 官方文档在 这里。
+
+在 BluetoothAdapter.startLeScan() 的时候，在 BluetoothAdapter.LeScanCallback.onLeScan() 中不能做太多事情，特别是周围的BLE设备多的时候，非常容易导致出现如下错误：
+
+E/GKILINUX(17741): ##### ERROR : GKIexception: GKIexception(): Task State Table E/GKILINUX(17741): ##### 
+E/GKILINUX(17741): ##### ERROR : GKIexception: TASK ID [0] task name [BTU] state [1] 
+E/GKILINUX(17741): ##### 
+E/GKILINUX(17741): ##### ERROR : GKIexception: TASK ID [1] task name [BTIF] state [1] 
+E/GKILINUX(17741): ##### 
+E/GKILINUX(17741): ##### ERROR : GKIexception: TASK ID [2] task name [A2DP-MEDIA] state [1] 
+E/GKILINUX(17741): ##### 
+E/GKILINUX(17741): ##### ERROR : GKIexception: GKIexception 65524 getbuf: out of buffers##### 
+E/GKILINUX(17741): ##### ERROR : GKIexception: 
+E/GKI_LINUX(17741): **********************
+
+开发建议：在 onLeScan() 回调中只做尽量少的工作，可以把扫描到的设备，扔到另外一个线程中去处理，让 onLeScan() 尽快返回。 [参考帖子]
+
+在使用 BluetoothDevice.connectGatt() 或者 BluetoothGatt.connect() 等建立 BluetoothGatt 连接的时候，在任何时刻都只能最多一个设备在尝试建立连接。如果同时对多个蓝牙设备发起建立 Gatt 连接请求。如果前面的设备连接失败了，后面的设备请求会被永远阻塞住，不会有任何连接回调。
+
+开发建议：如果要对多个设备发起连接请求，最好是有一个同一个的设备连接管理，把发起连接请求序列化起来。前一个设备请求建立连接，后面请求在队列中等待。如果连接成功了，就处理下一个连接请求。如果连接失败了（例如出错，或者连接超时失败），就马上调用 BluetoothGatt.disconnect() 来释放建立连接请求，然后处理下一个设备连接请求。 [参考帖子]
+
+对 BluetoothGatt 操作 (read/write)Characteristic(), (read/write)Descriptor() 和 readRemoteRssi() 都是异步操作。需要特别注意的是，同时只能有一个操作（有些贴这说只能同时有一个 writeCharacteristic()，这个我并没有严格验证），也就是等上一个操作回调（例如 onCharacteristicWrite()）以后，再进行下一个操作。
+
+开发建议：把这写操作都封装成同步操作，一个操作回调之前，阻塞主其他调用。 [参考帖子]
+
+BLE 设备的建立和断开连接的操作，例如 BluetoothDevice.connectGatt(), BluetoothGatt.connect(), BluetoothGatt.disconnect()，BluetoothGatt.discoverServices()等操作最好都放在主线程中，否则你会遇到很多意想不到的麻烦。
+
+开发建议：对 BluetoothGatt 的连接和断开请求，都通过发送消息到 Android 的主线程中，让主线程来执行具体的操作。例如创建一个 new Handler(context.getMainLooper());，把消息发送到这个 Handler 中。 [参考帖子]
+
+如果你在开发 BLE 应用的时候，有时候会发现系统的功耗明显增加了，查看电量使用情况，蓝牙功耗占比非常高，好像低功耗是徒有虚名。使用 adb bugreport 获取的了系统信息，分析发现一个名叫 BluetoothRemoteDevices的 WakeLock 锁持有时间非常长，导致系统进入不了休眠。分析源代码发现，在连接 BLE 设备的过程中，系统会持有 （Aquire）这个 WakeLock，直到连接上或者主动断开连接（调用 disconnect()）才会释放。如果BLE设备不在范围内，这个超时时间大约为30s，而这时你可能又要尝试重新连接，这个 WakeLock 有被重新持有，这样系统就永远不能休眠了。
+
+开发建议：对BLE设备连接，连接过程要尽量短，如果连接不上，不要盲目进行重连，否这你的电池会很快被消耗掉。这个情况，实际上对传统蓝牙设备连接也是一样。 [参考帖子]
+
+Android 作为中心设备，最多只能同时连接 6 个 BLE 外围设备（可能不同的设备这个数字不一样），超过 6 个，就会连接不上了。现在 BLE 设备越来越多，其实并不够用，所以在开发的过程中，需要特别的谨慎使用。
+
+开发建议：按照需要连接设备，如果设备使用完了，应该马上释放连接（调用BluetoothGatt.close()），腾出系统资源给其他可能的设备连接。 [参考帖子]
+
+发起蓝牙Gatt连接 BluetoothDevice.connectGatt(Context context, boolean autoConnect, BluetoothGattCallback callback)，这里有一个参数autoConnect，如果为 true 的话，系统就会发起一个后台连接，等到系统发现了一个设备，就会自动连上，通常这个过程是非常慢的。为 false 的话，就会直接连接，通常会比较快。同样，BluetoothGatt.connect()只能发起一个后台连接，不是直接连接。所以这个地方需要小心。
+
+public boolean connect() {
+    try {
+        mService.clientConnect(mClientIf, mDevice.getAddress(),
+                               false, mTransport); // autoConnect is inverse of "isDirect"
+        return true;
+    } catch (RemoteException e) {
+        Log.e(TAG,"",e);
+        return false;
+    }
+}
+开发建议：如果你需要快速连接（通常情况下我们都希望这样），在 connectGatt() 的时候，传入 autoConnect=false 的参数。如果需要调用 BluetoothGatt.connect() 连接，可一通过反射的方式，强制 mService.clientConnect() 发起直接连接，也就是传入参数 isDirect=true。[参考帖子]
+
+
+
+
+
+
+
+---------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------
+
+对蓝牙设备的操作不能并行，只能串行，并且每次都要在收到上一个操作的回调后才能继续下一个操作。有时候蓝牙协议栈出现异常可能收不到回调，所以我们要对每个操作做超时检查，否则后面的所有操作都被阻塞了。对于这些超时的任务或者失败的任务，通常是连接出了问题，我的做法是直接给gatt关掉，下次重新连接的时候重开一个gatt。除超时处理之外，对每个任务最好支持失败重试机制，尤其是连接。
+
+同一个设备的所有操作最好都放在同一个线程串行执行，最好不要放在UI线程，虽然这些操作都是异步的，理论上来说不会耗时，但是由于涉及到跨进程，有可能出现ANR。另外不建议每个设备都开一个线程，设备多了会费内存也会降低性能。较好的做法是开一个线程，所有设备的操作都在该线程中发起，虽然占用同一个线程，但是每个设备各自维护自己的任务队列。
+
+设备的gatt在不用时要及时关闭，不然会造成连接泄露，而系统支持的连接设备数是有限的，当达到上限后有可能其它设备连不了。
+
+当设备断开连接时，最好closeGatt，而不是diconnect。不要下次复用之前的gatt来reconnect，因为有的手机上重连可能会存在问题，比如重连后死活发现不了service。这种情况下，最好只要断开连接就close gatt，下次连接时打开全新的gatt，这样就可以发现service了。
+
+service不要缓存，虽然uuid什么的都没变，但是这些service都会和gatt关联的，如果gatt变了，那service就报废了，对这些service和character做任何读写操作都会出错。所以建议每次连接上时都去discover service，不要缓存。
+
+有的手机discover service很慢，原因是connect interval太大了，有的手机会主动向设备发起更改connect interval，而有的手机却不会。这样的话connect interval相差就会很大，实践中发现有的手机是7ms，有的手机是默认的50ms，所以发现service都要8s，甚至20s的都很寻常，这对用户来说是无法忍受的。所以比较好的办法是设备主动发起更改connect interval，这个可以参考google搜索 ble spec update connection parameter， https://devzone.nordicsemi.com/question/12545/update-connection-parameter-programmatically/
+
+前面提到蓝牙的所有操作都要放到同一个线程里执行，但是回调通常都会在binder线程里执行，因为这是跨进程回调回来的。一定要注意到这一点，否则会出现一些奇怪的问题。比如writeCharacter在线程A中，但是onCharacterWrite是在binder线程中，回调里如果涉及到任务队列的调度一定要post回线程A中，不然任务调度会出问题。
+
+当设备固件升级后，character可能发生了变化，而系统是不知道的，下次discover service的时候还是返回的旧的缓存，这样读写character可能会失败。解决办法是固件升级后，断开连接再重开一个gatt，并马上刷新一下该设备的缓存。当然，重启蓝牙也会刷新缓存，不过会影响到所有设备。另外有时候discoverService服务发现的不全，或者根本发现不了服务，也可以考虑清除一下缓存。 关于蓝牙缓存的清除可以参考 http://stackoverflow.com/questions/22596951/how-to-programmatically-force-bluetooth-low-energy-service-discovery-on-android
+
+尽量维护设备的连接，因为连接是有成本的，慢的时候可能要等几秒钟，对于操作频次较高的设备用户是无法忍受的。这种情况可以考虑在退出设备操作页面时，继续为该设备保持连接一段时间再断开，如果这段时间内用户又重新点进设备操作页就能很快。
+
+固件升级通常是写设备，为加快写速度，可以在write character时指定no response标志，实践发现速度可以提升2~3倍。不过要注意的是即便带了no response标志，也不代表这种写操作是没有回调的，我们仍然要遵循收到上一次写回调后才能进行下一次写操作。
+
+打开/关闭character的notify，如下：
+
+private boolean setCharacteristicNotification(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, boolean flag) {
+    boolean result = gatt.setCharacteristicNotification(characteristic, flag);
+
+    if (result) {
+        BluetoothGattDescriptor descriptor = characteristic
+         .getDescriptor(UUID.fromString(BluetoothConstants.CLIENT_CHARACTERISTIC_CONFIG));
+
+        if (descriptor != null) {
+            descriptor.setValue(flag ? BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                            : BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
+        }
+        result = mBluetoothGatt.writeDescriptor(descriptor);
+    }
+    return result;
+}
+这里有两步操作，别漏掉设置descriptor，并且要注意必须等收到onDescriptorWrite回调之后再继续执行下一个任务。
+
+最后可以参考这个链接，关于BLE各种不稳定的问题和兼容的办法的讨论：
+http://stackoverflow.com/questions/17870189/android-4-3-bluetooth-low-energy-unstable
+
+大家可以参考这个蓝牙开源框架BluetoothKit：
+https://github.com/dingjikerbo/BluetoothKit
