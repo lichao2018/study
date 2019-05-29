@@ -1,0 +1,4 @@
+1.下载xx.fbx文件
+2.在unity Assets目录邮件import new assets，导入下载好的xx.fbx文件
+3.修改xx的inspector/rig中的animation type为humanoid，然后apply，将xx拖入场景中，把动画拖入到它到animator controller中，再把它拖到assets/prefaba中即可
+4.删除场景中到xx，这样，一个模型prefab就做好了
