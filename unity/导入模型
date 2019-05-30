@@ -2,3 +2,6 @@
 2.在unity Assets目录邮件import new assets，导入下载好的xx.fbx文件
 3.修改xx的inspector/rig中的animation type为humanoid，然后apply，将xx拖入场景中，把动画拖入到它到animator controller中，再把它拖到assets/prefaba中即可
 4.删除场景中到xx，这样，一个模型prefab就做好了
+
+5.人物模型到死亡动画可以添加ragdoll实现。右键gameobject-3dobject-ragdoll，将mixamorig:hips中关节分别添加到选项中，create，就添加好了。
+  destroy某一个关节，死亡到时候，该关节连着到两个部分就会断开。
