@@ -5,3 +5,5 @@
 
 5.人物模型到死亡动画可以添加ragdoll实现。右键gameobject-3dobject-ragdoll，将mixamorig:hips中关节分别添加到选项中，create，就添加好了。
   destroy某一个关节，死亡到时候，该关节连着到两个部分就会断开。
+
+6.在mixamo下载模型，如果只想要T形模型，则不添加动作就是T形模型了。如果想下载animation，添加上动作下载就可以当animation来用。
