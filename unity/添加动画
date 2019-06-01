@@ -1,0 +1,7 @@
+1.新建animator controller
+2.在ac(animator controller)中，create state->empty，重命名为具体的动作名称
+3.在inspector面板，motion项添加上动画，一个state就完成了
+4.可以添加多个state，在某个state上，右键-make transaction，然后连接到其他state上
+5.在左侧面板中，选择parameters，新建参数，该参数将用于state转换
+6.点击连接state的线，inspector面板上，即可修改conditions中的参数值
+7.代码中修改参数，就跳转到其他state上
