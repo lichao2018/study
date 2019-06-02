@@ -9,3 +9,5 @@
 如果是人物动画，导入的动画需要调整一下rig，不然用不了。
 在instpector-rig中，animationtype选humanoid，然后apply，这时configure就可以点击，点configure，pose选sample bind-pose，apply-done。
 现在动画就可以用了。
+
+去掉动画线条上的has exit time，不然会等当前动画播放完才播放下一个动画
