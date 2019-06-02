@@ -5,3 +5,7 @@
 5.在左侧面板中，选择parameters，新建参数，该参数将用于state转换
 6.点击连接state的线，inspector面板上，即可修改conditions中的参数值
 7.代码中修改参数，就跳转到其他state上
+
+如果是人物动画，导入的动画需要调整一下rig，不然用不了。
+在instpector-rig中，animationtype选humanoid，然后apply，这时configure就可以点击，点configure，pose选sample bind-pose，apply-done。
+现在动画就可以用了。
