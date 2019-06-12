@@ -12,3 +12,4 @@
 选中导入的模型，在inspector面板中，选择materials标签，下面的remapped materials中的材质是缺失的，需要将location改为use extrenal materials(legacy),
 apply后再改回为use embedded materials，下面的remapped materials就自动添加上了，材质球也自动放到了assets/materials目录中。
 这时还需要找到使用的材质球，将所有材质球的rendering mode改为opaque模式。
+我使用的2018.2.10版本，模型inspector的materials标签中没有内容，换成2018.4.1版本后恢复正常。
