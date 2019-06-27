@@ -1,0 +1,138 @@
+public class CameraFragment extends BaseFragment implements View.OnLayoutChangeListener {
+
+    @BindView(R.id.view_finder)
+    TextureView viewFinder;
+
+    View mContainer;
+    CameraX.LensFacing lensFacing = CameraX.LensFacing.BACK;
+    ImageCapture imgCap;
+
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        mContainer = container;
+        View view = inflater.inflate(R.layout.fragment_camera, container, false);
+        mContainer = view;
+        ButterKnife.bind(this, view);
+        viewFinder = view.findViewById(R.id.view_finder);
+        viewFinder.addOnLayoutChangeListener(this);
+        bindCameraUseCases();
+        return view;
+    }
+
+    @SuppressLint("RestrictedApi")
+    @OnClick(R.id.camera_switch_button)
+    void switchCamera(){
+        if(lensFacing == CameraX.LensFacing.BACK){
+            lensFacing = CameraX.LensFacing.FRONT;
+        }else{
+            lensFacing = CameraX.LensFacing.BACK;
+        }
+        try {
+            CameraX.getCameraWithLensFacing(lensFacing);
+            bindCameraUseCases();
+        } catch (CameraInfoUnavailableException e) {
+            e.printStackTrace();
+        }
+    }
+
+    @OnClick(R.id.camera_capture_button)
+    void takePhoto(){
+        File file = new File(Environment.getExternalStorageDirectory() + "/" + System.currentTimeMillis() + ".jpg");
+        imgCap.takePicture(file, new ImageCapture.OnImageSavedListener() {
+            @Override
+            public void onImageSaved(@NonNull File file) {
+                String msg = "Photo capture succeeded: " + file.getAbsolutePath();
+                Toast.makeText(getActivity(), msg,Toast.LENGTH_LONG).show();
+            }
+
+            @Override
+            public void onError(@NonNull ImageCapture.UseCaseError useCaseError, @NonNull String message, @Nullable Throwable cause) {
+                String msg = "Photo capture failed: " + message;
+                Toast.makeText(getActivity(), msg,Toast.LENGTH_LONG).show();
+                if(cause != null){
+                    cause.printStackTrace();
+                }
+            }
+        });
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            mContainer.postDelayed(() -> {
+                mContainer.setForeground(new ColorDrawable(Color.WHITE));
+                mContainer.postDelayed(() -> mContainer.setForeground(null), 50L);
+            }, 100L);
+        }
+    }
+
+    void bindCameraUseCases(){
+        CameraX.unbindAll();
+
+        /* start preview */
+        int aspRatioW = viewFinder.getWidth(); //get width of screen
+        int aspRatioH = viewFinder.getHeight(); //get height
+        Rational asp = new Rational (aspRatioW, aspRatioH); //aspect ratio
+        Size screen = new Size(aspRatioW, aspRatioH); //size of the screen
+
+        PreviewConfig config = new PreviewConfig.Builder().setLensFacing(lensFacing).setTargetAspectRatio(asp).setTargetResolution(screen).build();
+        Preview preview = new Preview(config);
+        preview.setOnPreviewOutputUpdateListener(output -> {
+            ViewGroup parent = (ViewGroup) viewFinder.getParent();
+            parent.removeView(viewFinder);
+            parent.addView(viewFinder, 0);
+
+            viewFinder.setSurfaceTexture(output.getSurfaceTexture());
+            updateTransform();
+        });
+
+        ImageCaptureConfig imgCapConfig = new ImageCaptureConfig.Builder().setLensFacing(lensFacing).setCaptureMode(ImageCapture.CaptureMode.MIN_LATENCY)
+                .setTargetRotation(getActivity().getWindowManager().getDefaultDisplay().getRotation()).build();
+        imgCap = new ImageCapture(imgCapConfig);
+
+        ImageAnalysisConfig imgAConfig = new ImageAnalysisConfig.Builder().setLensFacing(lensFacing).setImageReaderMode(ImageAnalysis.ImageReaderMode.ACQUIRE_LATEST_IMAGE).build();
+        ImageAnalysis analysis = new ImageAnalysis(imgAConfig);
+
+        analysis.setAnalyzer(
+                (image, rotationDegrees) -> {
+                    //y'all can add code to analyse stuff here idek go wild.
+                });
+
+        CameraX.bindToLifecycle((LifecycleOwner)this, analysis, imgCap, preview);
+    }
+
+    private void updateTransform(){
+        Matrix mx = new Matrix();
+        float w = viewFinder.getMeasuredWidth();
+        float h = viewFinder.getMeasuredHeight();
+
+        float centreX = w / 2f; //calc centre of the viewfinder
+        float centreY = h / 2f;
+
+        int rotationDgr;
+        int rotation = (int)viewFinder.getRotation(); //cast to int bc switches don't like floats
+
+        switch(rotation){ //correct output to account for display rotation
+            case Surface.ROTATION_0:
+                rotationDgr = 0;
+                break;
+            case Surface.ROTATION_90:
+                rotationDgr = 90;
+                break;
+            case Surface.ROTATION_180:
+                rotationDgr = 180;
+                break;
+            case Surface.ROTATION_270:
+                rotationDgr = 270;
+                break;
+            default:
+                return;
+        }
+
+        mx.postRotate((float)rotationDgr, centreX, centreY);
+        viewFinder.setTransform(mx); //apply transformations to textureview
+    }
+
+    @Override
+    public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop, int oldRight, int oldBottom) {
+
+    }
+}
