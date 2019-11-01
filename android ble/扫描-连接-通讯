@@ -1,0 +1,149 @@
+# 扫描
+```
+final BluetoothManager bluetoothManager = (BluetoothManager) mContext.getSystemService(Context.BLUETOOTH_SERVICE);
+if (bluetoothManager == null || (mBluetoothAdapter = bluetoothManager.getAdapter()) == null) {
+    return FTBleErrCode.FT_BT_NOT_SUPPORT;
+}
+ScanSettings settings = new ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build();
+List<ScanFilter> filters = new ArrayList<>();
+ScanFilter filter = new ScanFilter.Builder()
+        .setDeviceName(BleData.DEVICE_NAME)
+        .build();
+filters.add(filter);
+mBluetoothAdapter.getBluetoothLeScanner().startScan(filters, settings, mLeScanCallback);
+```
+这里不加filter的话，在高版本系统上，如果锁屏了，收不到扫描的结果。
+```
+private ScanCallback mLeScanCallback = new ScanCallback() {
+   @Override
+   public void onScanResult(int callbackType, ScanResult result) {
+       BluetoothDevice bluetoothDevice = result.getDevice();
+       ScanRecord scanRecord = result.getScanRecord();
+       byte[] manuData = scanRecord.getManufacturerSpecificData(BleData.MANUDATA_ID_INT);
+   }
+   @Override
+   public void onScanFailed(int errorCode) {
+       switch (errorCode){
+           case SCAN_FAILED_ALREADY_STARTED:
+           case SCAN_FAILED_APPLICATION_REGISTRATION_FAILED:
+           case SCAN_FAILED_INTERNAL_ERROR:
+           case SCAN_FAILED_FEATURE_UNSUPPORTED:
+           default:
+               break;
+       }
+   }
+};
+```
+这是扫描结果的回调，可以拿到蓝牙设备实例，广播数据等。
+
+# 连接
+bluetoothDevice是扫描得到的设备实例，或根据mac得到的。
+回调中接收连接成功/断开的结果，发现服务的结果，写数据的结果，读数据的内容，特征值改变的结果。
+```
+BluetoothDevice bluetoothDevice = BluetoothAdapter.getDefaultAdapter().getRemoteDevice(mac);
+BluetoothGatt mGatt = bluetoothDevice.connectGatt(mContext, false, mGattCallback);
+mGatt.connect();
+
+private BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
+    @Override
+    public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+        if(newState == BluetoothProfile.STATE_CONNECTED){
+            if(status == BluetoothGatt.GATT_SUCCESS){
+                mGatt.discoverServices();
+            }else{
+                reconnect();
+            }
+        }else if(newState == BluetoothProfile.STATE_DISCONNECTED){
+            if(status == 0x85 || status == 0x89){
+                reconnect();
+            }else {
+                releaseSource();
+                mConntectCallback.onDeviceDisconnected(gatt.getDevice());
+            }
+        }
+    }
+
+    @Override
+    public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+        if(status == BluetoothGatt.GATT_SUCCESS){
+            mConntectCallback.onDeviceConnected(gatt.getDevice());
+        }else{
+            reconnect();
+        }
+    }
+
+    @Override
+    public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+        mDataReadCallback.onDataRead(characteristic.getValue());
+    }
+
+    @Override
+    public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+    }
+
+    @Override
+    public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+        byte[] data = characteristic.getValue();
+        mRecvCallback.onDataRecieved(FTBleErrCode.FT_SUCCESS, characteristic.getValue());
+    }
+};
+```
+
+# 通信
+读写数据都是针对不同的特征进行，结果通过上述回调返回。
+### 写数据
+首先找到具体要进行通信的特征，根据具体UUID找或者遍历服务
+```
+BluetoothGattService service = mGatt.getService(WRITE_SERVICE_UUID);
+BluetoothGattCharacteristic characteristic = service.getCharacteristic(WRITE_CHARACTERISTIC_UUID);
+```
+同时和一个设备只能进行一个操作，所以要加重发或者等待其他操作完成再进行。
+```
+if (characteristic.setValue(data)) {
+    for (int i = 0; i < 5; i++) {
+        boolean result = mGatt.writeCharacteristic(characteristic);
+        if (result) {
+            return FTBleErrCode.FT_SUCCESS;
+        }
+        try {
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+}
+```
+写数据成功/失败的结果，以及已发送的数据通过onCharacteristicWrite回调接收。
+
+### 读数据
+也需要根据UUID拿到读特征实例，以及重发。
+通过onCharacteristicRead回调接收读取的数据以及结果；
+```
+for(int i = 0; i < 5; i ++) {
+    boolean read = mGatt.readCharacteristic(characteristic);
+    if(read){
+        break;
+    }
+    try {
+        Thread.sleep(500);
+    } catch (InterruptedException e) {
+        e.printStackTrace();
+    }
+}
+```
+
+### 通知
+设备数据改变的通知，通过有notify属性的特征进行通知。
+比如点击了设备，可以通过通知来告知app。
+或者app给设备发送了一些数据，设备回复的数据也通过通知来传达给app。
+通知结果通过onCharacteristicChanged回调接收。
+```
+if (characteristic != null && mGatt.setCharacteristicNotification(characteristic, true)) {
+    BluetoothGattDescriptor descriptor = characteristic.getDescriptor(UUID_DESC_NOTIF);
+    descriptor.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+    mGatt.writeDescriptor(descriptor);
+}
+```
+
+response/no response，notify
+justwork/xxx
