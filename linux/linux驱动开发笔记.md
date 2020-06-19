@@ -12,14 +12,14 @@ hello.c
 int __init xxx_init(void)
 {
     /*这里是模块加载时的初始化工作*/
-	printk(KERN_INFO "Hello World\n");
+    printk(KERN_INFO "Hello World\n");
     return 0;
 }
 
 void __exit xxx_exit(void)
 {
     /*这里是模块卸载时的销毁工作*/
-	printk(KERN_INFO "Goodbye World\n");
+    printk(KERN_INFO "Goodbye World\n");
 }
 module_init(xxx_init);                        /*指定模块的初始化函数的宏*/
 module_exit(xxx_exit);                        /*指定模块的卸载函数的宏*/
@@ -71,16 +71,16 @@ rmmod 卸载模块
 ```
 struct cdev{
     struct module *owner;
-	const struct file_operations *ops;  //提供给应用的操作方法集
-	dev_t dev;                          //设备号
-	unsigned int count;                 //设备个数
-	struct list_head list;
+    const struct file_operations *ops;  //提供给应用的操作方法集
+    dev_t dev;                          //设备号
+    unsigned int count;                 //设备个数
+    struct list_head list;
 }
 
 struct file_operations{
     *read();
-	  *write();
-	  *open();
+    *write();
+    *open();
     ...
 }
 ```
@@ -89,7 +89,7 @@ struct file_operations{
 1. 分配设备号
 ```
     int alloc_chrdev_region();       //自动分配
-	  int register_chrdev_region();    //指定分配
+    int register_chrdev_region();    //指定分配
 ```
 2. 注销设备号
 ```
@@ -129,52 +129,52 @@ struct cdev *cdevp = NULL;
 
 int hello_open(struct inode *inode, struct file *filp){
     printk(KERN_INFO "hello_open");
-	return 0;
+    return 0;
 }
 
 int hello_release(struct inode *inode, struct file *filp){
     printk(KERN_INFO "hello_release");
-	return 0;
+    return 0;
 }
 
 struct file_operations fps = {
     .owner =   THIS_MODULE,
     .open =    hello_open,
-	.release = hello_release,
+    .release = hello_release,
 };
 
 int __init hello_init(void)
 {
     int ret;
     //分配设备号
-	ret = alloc_chrdev_region(&devno, BASEMINOR, COUNT, NAME);
-	if(ret < 0){
-	    printk(KERN_ERR "alloc_chrdev failed\n");
-		goto err1;
-	}
-	printk(KERN_INFO "major = %d \n", MAJOR(devno));
-	//给cdev分配空间
-	cdevp = cdev_alloc();
-	if(cdevp == NULL){
-	    printk(KERN_ERR "cdev_alloc failed\n");
-		ret = -ENOMEM;
-		goto err2;
-	}
-	//cdev初始化
-	cdev_init(cdevp, &fps);
-	//注册设备
-	ret = cdev_add(cdevp, devno, COUNT);
-	if(ret < 0){
-	    printk(KERN_ERR "cdev add");
-		goto err2;
-	}
+    ret = alloc_chrdev_region(&devno, BASEMINOR, COUNT, NAME);
+    if(ret < 0){
+	printk(KERN_ERR "alloc_chrdev failed\n");
+	goto err1;
+    }
+    printk(KERN_INFO "major = %d \n", MAJOR(devno));
+    //给cdev分配空间
+    cdevp = cdev_alloc();
+    if(cdevp == NULL){
+        printk(KERN_ERR "cdev_alloc failed\n");
+	ret = -ENOMEM;
+	goto err2;
+    }
+    //cdev初始化
+    cdev_init(cdevp, &fps);
+    //注册设备
+    ret = cdev_add(cdevp, devno, COUNT);
+    if(ret < 0){
+	printk(KERN_ERR "cdev add");
+	goto err2;
+    }
 
     /*这里是模块加载时的初始化工作*/
-	printk(KERN_INFO "Hello World\n");
+    printk(KERN_INFO "Hello World\n");
     return 0;
 
 err2:
-	unregister_chrdev_region(devno, COUNT);
+    unregister_chrdev_region(devno, COUNT);
 err1:
     return ret;
 }
@@ -182,9 +182,9 @@ err1:
 void __exit hello_exit(void)
 {
     cdev_del(cdevp);
-	unregister_chrdev_region(devno, COUNT);
+    unregister_chrdev_region(devno, COUNT);
     /*这里是模块卸载时的销毁工作*/
-	printk(KERN_INFO "Goodbye World\n");
+    printk(KERN_INFO "Goodbye World\n");
 }
 module_init(hello_init);                        /*指定模块的初始化函数的宏*/
 module_exit(hello_exit);                        /*指定模块的卸载函数的宏*/
