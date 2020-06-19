@@ -152,16 +152,16 @@ int __init hello_init(void)
 	    printk(KERN_ERR "alloc_chrdev failed\n");
 		goto err1;
 	}
-	printk(KERN_INFO, "major = %d \n", MAJOR(devno));
+	printk(KERN_INFO "major = %d \n", MAJOR(devno));
 	//给cdev分配空间
 	cdevp = cdev_alloc();
 	if(cdevp == NULL){
 	    printk(KERN_ERR "cdev_alloc failed\n");
-		ret = -ENOMEN;
+		ret = -ENOMEM;
 		goto err2;
 	}
 	//cdev初始化
-	cdev_init(cdevp, &ops);
+	cdev_init(cdevp, &fps);
 	//注册设备
 	ret = cdev_add(cdevp, devno, COUNT);
 	if(ret < 0){
